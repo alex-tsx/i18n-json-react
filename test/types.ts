@@ -17,6 +17,12 @@ import { createAndroidDictionaryLoader, type AndroidLanguageAssets } from 'i18n-
 import { createExpoDictionaryLoader } from 'i18n-json-react/native/android/expo';
 import { prepareAndroidI18n, withI18nMetro } from 'i18n-json-react/native/android/metro';
 import type { ConfigT } from 'metro-config';
+import { createNativeDictionaryLoader, type NativeLanguageAssets } from 'i18n-json-react/native';
+import { createIOSDictionaryLoader, type IOSLanguageAssets } from 'i18n-json-react/native/ios';
+import { createExpoDictionaryLoader as createIOSExpoLoader } from 'i18n-json-react/native/ios/expo';
+import { createExpoDictionaryLoader as createNativeExpoLoader } from 'i18n-json-react/native/expo';
+import { prepareNativeI18n, withI18nMetro as withNativeMetro } from 'i18n-json-react/native/metro';
+import { prepareIOSI18n, withI18nMetro as withIOSMetro } from 'i18n-json-react/native/ios/metro';
 import messages from './messages.json' with { type: 'json' };
 
 const i18n = createI18n({ supportedLanguages: ['en', 'uk', 'pt-BR'], fallbackLanguage: 'en' });
@@ -126,6 +132,17 @@ i18nJsonPlugin({ dirs: 'src' });
 i18n.createUseTypoHook(messages);
 
 const assets: AndroidLanguageAssets<'EN' | 'UK'> = { EN: () => 1, UK: () => 2 };
+const iosAssets: IOSLanguageAssets<'EN' | 'UK'> = assets;
+const sharedAssets: NativeLanguageAssets<'EN' | 'UK'> = iosAssets;
+const iosLoader = createIOSDictionaryLoader(iosAssets, { readAssetText: async () => '{}' });
+createNativeDictionaryLoader(sharedAssets, { readAssetText: async () => '{}' })('EN');
+createIOSExpoLoader(iosAssets)('UK');
+createNativeExpoLoader(sharedAssets)('EN');
+createI18n({ supportedLanguages: ['EN', 'UK'], fallbackLanguage: 'UK', loadDictionary: iosLoader });
+// @ts-expect-error iOS loader preserves exact manifest language keys.
+iosLoader('FR');
+// @ts-expect-error iOS loaders require a native reader just like the shared adapter.
+createIOSDictionaryLoader(iosAssets);
 const nativeLoader = createAndroidDictionaryLoader(assets, { readAssetText: async () => '{}' });
 nativeLoader('EN');
 createExpoDictionaryLoader(assets)('UK');
@@ -137,7 +154,11 @@ createAndroidDictionaryLoader(assets);
 // @ts-expect-error The loader must support every configured language.
 createI18n({ supportedLanguages: ['EN', 'UK', 'FR'], fallbackLanguage: 'UK', loadDictionary: nativeLoader });
 prepareAndroidI18n({ projectRoot: 'native', root: '..', dirs: ['src', 'native'], languages: ['EN', 'UK'] });
+prepareNativeI18n({ projectRoot: 'native', root: '..', dirs: ['src', 'native'] });
+prepareIOSI18n({ projectRoot: 'native', root: '..', dirs: ['src', 'native'] });
 function checkMetro(config: ConfigT) {
+  withNativeMetro(config, { root: '..' });
+  withIOSMetro(config, { root: '..' });
   return withI18nMetro(config, { root: '..', dirs: ['src', 'native'] });
 }
 void checkMetro;

@@ -1,7 +1,7 @@
 {
   "name": "i18n-json-react",
   "version": "0.1.0",
-  "description": "Typed, feature-local JSON translations for React and React Native, with Vite, Webpack and Android Metro extraction.",
+  "description": "Typed, feature-local JSON translations for React and React Native, with Vite, Webpack and Android/iOS Metro extraction.",
   "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
@@ -47,7 +47,31 @@
       "types": "./native/android/metro.d.cts",
       "default": "./native/android/metro.cjs"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./native": {
+      "types": "./native/index.d.cts",
+      "default": "./native/index.cjs"
+    },
+    "./native/expo": {
+      "types": "./native/expo.d.cts",
+      "default": "./native/expo.cjs"
+    },
+    "./native/metro": {
+      "types": "./native/metro.d.cts",
+      "default": "./native/metro.cjs"
+    },
+    "./native/ios": {
+      "types": "./native/ios/index.d.cts",
+      "default": "./native/ios/index.cjs"
+    },
+    "./native/ios/expo": {
+      "types": "./native/ios/expo.d.cts",
+      "default": "./native/ios/expo.cjs"
+    },
+    "./native/ios/metro": {
+      "types": "./native/ios/metro.d.cts",
+      "default": "./native/ios/metro.cjs"
+    }
   },
   "files": [
     "dist",
@@ -56,12 +80,14 @@
     "webpack",
     "vite",
     "bundlers",
-    "native/android",
+    "native",
     "README.md"
   ],
   "sideEffects": false,
   "bin": {
-    "i18n-json-react-android": "./native/android/cli.cjs"
+    "i18n-json-react-android": "./native/android/cli.cjs",
+    "i18n-json-react-native": "./native/cli.cjs",
+    "i18n-json-react-ios": "./native/ios/cli.cjs"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -134,7 +160,8 @@
     "react-native",
     "android",
     "expo",
-    "metro"
+    "metro",
+    "ios"
   ],
   "license": "UNLICENSED"
 }

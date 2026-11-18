@@ -11,10 +11,14 @@ import vm from 'node:vm';
 import Metro from 'metro';
 import { getDefaultConfig } from 'metro-config';
 import { createI18nStore } from 'i18n-json-react/core';
+import { createNativeDictionaryLoader } from 'i18n-json-react/native';
 import { createAndroidDictionaryLoader } from 'i18n-json-react/native/android';
-import { prepareAndroidI18n, withI18nMetro } from 'i18n-json-react/native/android/metro';
+import { createIOSDictionaryLoader } from 'i18n-json-react/native/ios';
+import { prepareNativeI18n, withI18nMetro } from 'i18n-json-react/native/metro';
+import { prepareAndroidI18n } from 'i18n-json-react/native/android/metro';
+import { prepareIOSI18n, withI18nMetro as iosMetro } from 'i18n-json-react/native/ios/metro';
 
-const temporary = await realpath(await mkdtemp(path.join(os.tmpdir(), 'i18n-json-react-android-')));
+const temporary = await realpath(await mkdtemp(path.join(os.tmpdir(), 'i18n-json-react-native-')));
 after(() => rm(temporary, { recursive: true, force: true }));
 const exec = promisify(execFile);
 const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -37,9 +41,17 @@ async function fixture(name) {
   return { workspace, native, file };
 }
 
-test('Android generation collects shared feature JSON as separate assets and lazy module providers', async () => {
+test('Android, iOS and shared native entry points use the same preparation and loader', () => {
+  assert.equal(createAndroidDictionaryLoader, createNativeDictionaryLoader);
+  assert.equal(createIOSDictionaryLoader, createNativeDictionaryLoader);
+  assert.equal(prepareAndroidI18n, prepareNativeI18n);
+  assert.equal(prepareIOSI18n, prepareNativeI18n);
+  assert.equal(iosMetro, withI18nMetro);
+});
+
+test('native generation collects shared feature JSON as separate assets and lazy module providers', async () => {
   const { workspace, native, file } = await fixture('generation');
-  const prepared = await prepareAndroidI18n({ projectRoot: native, root: '..', dirs: ['src'] });
+  const prepared = await prepareNativeI18n({ projectRoot: native, root: '..', dirs: ['src'] });
   assert.deepEqual(prepared.languages, ['EN', 'FR', 'UK']);
   const id = computeId(file, workspace);
   const stub = await readFile(prepared.references.get(file), 'utf8');
@@ -63,16 +75,16 @@ test('Android generation collects shared feature JSON as separate assets and laz
   const type = await readFile(path.join(prepared.outputDir, 'manifest.d.cts'), 'utf8');
   assert.ok(type.includes('readonly "EN": () => number'));
   const modified = (await stat(prepared.manifestPath)).mtimeMs;
-  await prepareAndroidI18n({ projectRoot: native, root: '..', dirs: ['src'] });
+  await prepareNativeI18n({ projectRoot: native, root: '..', dirs: ['src'] });
   assert.equal((await stat(prepared.manifestPath)).mtimeMs, modified);
 });
 
-test('Android language selection and regeneration remove stale generated files safely', async () => {
+test('native language selection and regeneration remove stale generated files safely', async () => {
   const { native, file } = await fixture('subset');
   const options = { projectRoot: native, root: '..', dirs: ['src'] };
-  const first = await prepareAndroidI18n(options);
+  const first = await prepareNativeI18n(options);
   await writeFile(path.join(first.outputDir, 'assets', 'notes.txt'), 'Keep this file');
-  const next = await prepareAndroidI18n({ ...options, languages: ['UK', 'EN'] });
+  const next = await prepareNativeI18n({ ...options, languages: ['UK', 'EN'] });
   assert.deepEqual((await readdir(path.join(next.outputDir, 'assets'))).sort(), [
     'EN.i18npack',
     'UK.i18npack',
@@ -80,15 +92,15 @@ test('Android language selection and regeneration remove stale generated files s
   ]);
   assert.equal((await readFile(next.manifestPath, 'utf8')).includes('"FR"'), false);
   await rm(file);
-  await prepareAndroidI18n(options);
+  await prepareNativeI18n(options);
   assert.deepEqual(await readdir(path.join(next.outputDir, 'references')), []);
   const manual = path.join(native, 'manual');
   await mkdir(manual);
   await writeFile(path.join(manual, 'keep.txt'), 'Do not overwrite');
-  await assert.rejects(prepareAndroidI18n({ ...options, outputDir: 'manual' }), /non-generated/);
-  await assert.rejects(prepareAndroidI18n({ ...options, outputDir: '.' }), /dedicated/);
-  await assert.rejects(prepareAndroidI18n({ ...options, languages: [] }), /nonempty/);
-  await assert.rejects(prepareAndroidI18n({ ...options, languages: ['EN', 'EN'] }), /duplicates/);
+  await assert.rejects(prepareNativeI18n({ ...options, outputDir: 'manual' }), /non-generated/);
+  await assert.rejects(prepareNativeI18n({ ...options, outputDir: '.' }), /dedicated/);
+  await assert.rejects(prepareNativeI18n({ ...options, languages: [] }), /nonempty/);
+  await assert.rejects(prepareNativeI18n({ ...options, languages: ['EN', 'EN'] }), /duplicates/);
 });
 
 test('Metro integration preserves prior config/resolver behavior and rejects unprepared or changed sources', async () => {
@@ -114,11 +126,14 @@ test('Metro integration preserves prior config/resolver behavior and rejects unp
   assert.equal(config.transformer, transformer);
   assert.ok(config.resolver.assetExts.includes('i18npack'));
   assert.ok(config.resolver.sourceExts.includes('json'));
-  assert.equal(config.resolver.resolveRequest({}, './i18n.json', 'ios').filePath, file);
+  assert.equal(config.resolver.resolveRequest({}, './i18n.json', 'web').filePath, file);
+  assert.ok(config.resolver.resolveRequest({}, './i18n.json', 'ios').filePath.includes('references'));
   assert.ok(config.resolver.resolveRequest({}, './i18n.json', 'android').filePath.includes('references'));
-  assert.equal(calls, 2);
+  assert.equal(calls, 3);
   await writeFile(file, JSON.stringify({ EN: { hello: 'Edited' } }));
-  assert.throws(() => config.resolver.resolveRequest({}, './i18n.json', 'android'), /Restart Metro/);
+  for (const platform of ['android', 'ios']) {
+    assert.throws(() => config.resolver.resolveRequest({}, './i18n.json', platform), /Restart Metro/);
+  }
 });
 
 test('native loader and the I18N store read only the fallback and selected assets, caching their contents', async () => {
@@ -133,7 +148,7 @@ test('native loader and the I18N store read only the fallback and selected asset
       },
     ]),
   );
-  const loader = createAndroidDictionaryLoader(assets, {
+  const loader = createNativeDictionaryLoader(assets, {
     readAssetText: async id => {
       const language = ['UK', 'EN', 'FR'][id - 1];
       reads.push(language);
@@ -161,18 +176,18 @@ test('native loader and the I18N store read only the fallback and selected asset
 });
 
 test('native asset errors reject clearly and use the core retry behavior', async () => {
-  assert.throws(() => createAndroidDictionaryLoader({ EN: () => 1 }), /readAssetText/);
-  await assert.rejects(createAndroidDictionaryLoader({}, { readAssetText: async () => '{}' })('EN'), /No bundled/);
+  assert.throws(() => createNativeDictionaryLoader({ EN: () => 1 }), /readAssetText/);
+  await assert.rejects(createNativeDictionaryLoader({}, { readAssetText: async () => '{}' })('EN'), /No bundled/);
   await assert.rejects(
-    createAndroidDictionaryLoader({ EN: () => 'bad' }, { readAssetText: async () => '{}' })('EN'),
+    createNativeDictionaryLoader({ EN: () => 'bad' }, { readAssetText: async () => '{}' })('EN'),
     /Invalid native/,
   );
   await assert.rejects(
-    createAndroidDictionaryLoader({ EN: () => 1 }, { readAssetText: async () => '[]' })('EN'),
+    createNativeDictionaryLoader({ EN: () => 1 }, { readAssetText: async () => '[]' })('EN'),
     /dictionary object/,
   );
   let attempts = 0;
-  const loader = createAndroidDictionaryLoader(
+  const loader = createNativeDictionaryLoader(
     { EN: () => 1 },
     {
       readAssetText: async () => {
@@ -193,18 +208,30 @@ test('native asset errors reject clearly and use the core retry behavior', async
 });
 
 test('Expo adapter uses cached local files or resolves only the requested asset before reading', async () => {
-  const source = await readFile(path.join(root, 'native/android/expo.cjs'), 'utf8');
+  const source = await readFile(path.join(root, 'native/expo.cjs'), 'utf8');
   const reads = [];
   const downloads = [];
   const records = new Map([
-    [1, { localUri: 'file:///UK.i18npack' }],
+    [1, { localUri: 'file:///var/containers/Bundle/Application/APP/HealthLedger.app/assets/UK.i18npack' }],
     [
       2,
       {
+        uri: 'http://127.0.0.1:8081/assets/EN.i18npack',
         localUri: null,
         async downloadAsync() {
           downloads.push(2);
           this.localUri = 'file:///EN.i18npack';
+        },
+      },
+    ],
+    [
+      3,
+      {
+        uri: 'file:///var/containers/Bundle/Application/APP/HealthLedger.app/assets/FR.i18npack',
+        localUri: null,
+        async downloadAsync() {
+          downloads.push(3);
+          this.localUri = this.uri;
         },
       },
     ],
@@ -223,20 +250,26 @@ test('Expo adapter uses cached local files or resolves only the requested asset 
         }
       },
     },
-    './index.cjs': { createAndroidDictionaryLoader },
+    './index.cjs': { createNativeDictionaryLoader },
   };
   vm.runInNewContext(source, { module, require: name => dependencies[name] });
-  const loader = module.exports.createExpoDictionaryLoader({ UK: () => 1, EN: () => 2 });
+  const loader = module.exports.createExpoDictionaryLoader({ UK: () => 1, EN: () => 2, FR: () => 3 });
   await loader('UK');
   assert.deepEqual(downloads, []);
   await loader('EN');
   assert.deepEqual(downloads, [2]);
-  assert.deepEqual(reads, ['file:///UK.i18npack', 'file:///EN.i18npack']);
+  assert.deepEqual(reads, [
+    'file:///var/containers/Bundle/Application/APP/HealthLedger.app/assets/UK.i18npack',
+    'file:///EN.i18npack',
+  ]);
+  await loader('FR');
+  assert.deepEqual(downloads, [2, 3]);
+  assert.equal(reads[2], records.get(3).uri);
 });
 
-test('CLI prepares a shared workspace and reports generation errors', async () => {
+test('shared and platform CLIs prepare a workspace and report generation errors', async () => {
   const { native } = await fixture('cli');
-  const command = path.join(root, 'native/android/cli.cjs');
+  const command = path.join(root, 'native/cli.cjs');
   const result = await exec(process.execPath, [
     command,
     '--project-root',
@@ -254,93 +287,110 @@ test('CLI prepares a shared workspace and reports generation errors', async () =
     exec(process.execPath, [command, '--unknown']),
     error => error.code === 1 && error.stderr.includes('Invalid option'),
   );
+  for (const platform of ['android', 'ios']) {
+    const platformCommand = path.join(root, `native/${platform}/cli.cjs`);
+    const prepared = await exec(process.execPath, [
+      platformCommand,
+      '--project-root',
+      native,
+      '--root',
+      '..',
+      '--dir',
+      'src',
+    ]);
+    assert.match(prepared.stdout, /Prepared 1 feature dictionaries for EN, FR, UK/);
+    const help = await exec(process.execPath, [platformCommand, '--help']);
+    assert.ok(help.stdout.startsWith(`i18n-json-react-${platform} `));
+  }
 });
 
-test(
-  'production Android Metro bundle contains IDs and asset metadata, with translations only in separate data assets',
-  { timeout: 30000 },
-  async () => {
-    const { workspace, native, file } = await fixture('metro');
-    await writeFile(
-      path.join(native, 'babel.config.json'),
-      JSON.stringify({ presets: [[require.resolve('@react-native/babel-preset'), { enableBabelRuntime: false }]] }),
-    );
-    await mkdir(path.join(workspace, 'node_modules'));
-    await symlink(root, path.join(workspace, 'node_modules', 'i18n-json-react'));
-    await writeFile(
-      path.join(native, 'registry.js'),
-      'exports.registerAsset = asset => { global.__registeredAssets.push(asset); return global.__registeredAssets.length; };',
-    );
-    await writeFile(
-      path.join(native, 'index.js'),
-      `
+for (const platform of ['android', 'ios']) {
+  test(
+    `production ${platform} Metro bundle contains IDs and asset metadata, with translations only in separate data assets`,
+    { timeout: 30000 },
+    async () => {
+      const { workspace, native, file } = await fixture(`metro-${platform}`);
+      await writeFile(
+        path.join(native, 'babel.config.json'),
+        JSON.stringify({ presets: [[require.resolve('@react-native/babel-preset'), { enableBabelRuntime: false }]] }),
+      );
+      await mkdir(path.join(workspace, 'node_modules'));
+      await symlink(root, path.join(workspace, 'node_modules', 'i18n-json-react'));
+      await writeFile(
+        path.join(native, 'registry.js'),
+        'exports.registerAsset = asset => { global.__registeredAssets.push(asset); return global.__registeredAssets.length; };',
+      );
+      await writeFile(
+        path.join(native, 'index.js'),
+        `
 const assets = require('./.i18n-json-react/manifest.cjs');
 const info = require('../src/profile/i18n.json');
 const { createI18nStore } = require('i18n-json-react/core');
-const { createAndroidDictionaryLoader } = require('i18n-json-react/native/android');
-global.__testStore = createI18nStore({ supportedLanguages: ['EN', 'UK', 'FR'], fallbackLanguage: 'UK', initialLanguage: 'EN', storage: false, loadDictionary: createAndroidDictionaryLoader(assets, { readAssetText: id => global.__readAssetText(id) }) });
+const { ${platform === 'ios' ? 'createIOSDictionaryLoader' : 'createAndroidDictionaryLoader'}: createNativeDictionaryLoader } = require('i18n-json-react/native/${platform}');
+global.__testStore = createI18nStore({ supportedLanguages: ['EN', 'UK', 'FR'], fallbackLanguage: 'UK', initialLanguage: 'EN', storage: false, loadDictionary: createNativeDictionaryLoader(assets, { readAssetText: id => global.__readAssetText(id) }) });
 global.__getTestText = global.__testStore.createTypoGetter(info);
 global.__testInfo = info;
 `,
-    );
-    const base = await getDefaultConfig(native);
-    const metroRequire = createRequire(require.resolve('metro/package.json'));
-    const runtimeRoot = path.dirname(metroRequire.resolve('metro-runtime/package.json'));
-    const config = await withI18nMetro(
-      {
-        ...base,
-        maxWorkers: 1,
-        useWatchman: false,
-        watchFolders: [workspace, root, runtimeRoot],
-        resolver: {
-          ...base.resolver,
-          nodeModulesPaths: [path.join(root, 'node_modules'), path.dirname(runtimeRoot)],
-        },
-        transformer: { ...base.transformer, assetRegistryPath: path.join(native, 'registry.js') },
-        reporter: { update() {} },
-      },
-      { root: '..', dirs: ['src'] },
-    );
-    const result = await Metro.runBuild(config, {
-      entry: 'index.js',
-      platform: 'android',
-      dev: false,
-      minify: true,
-      assets: true,
-      sourceMap: false,
-    });
-    for (const messages of Object.values(texts)) assert.equal(result.code.includes(messages.hello), false);
-    assert.equal(result.assets.length, 3);
-    assert.ok(result.assets.every(asset => asset.type === 'i18npack'));
-    const readLanguages = [];
-    const context = { __registeredAssets: [], console, setTimeout, clearTimeout };
-    context.global = context;
-    context.__readAssetText = async id => {
-      const metadata = context.__registeredAssets[id - 1];
-      readLanguages.push(metadata.name);
-      const asset = result.assets.find(asset => asset.name === metadata.name);
-      return readFile(asset.files[0], 'utf8');
-    };
-    vm.runInNewContext(result.code, context);
-    assert.equal(context.__registeredAssets.length, 0);
-    assert.equal(context.__testInfo.__id, computeId(file, workspace));
-    await context.__testStore.loadLanguage();
-    assert.deepEqual(readLanguages.sort(), ['EN', 'UK']);
-    assert.equal(context.__getTestText('hello'), texts.EN.hello);
-    const artifact = path.join(native, 'index.android.bundle.js');
-    await writeFile(artifact, result.code);
-    if (process.env.I18N_JSON_REACT_HERMES) {
-      const dictionaries = Object.fromEntries(
-        await Promise.all(result.assets.map(async asset => [asset.name, await readFile(asset.files[0], 'utf8')])),
       );
-      const harness = `var global = this; global.console = { error: function(error) { print(String(error)); }, log: print, warn: print }; global.__registeredAssets = []; var reads = []; var dictionaries = ${JSON.stringify(dictionaries)};
+      const base = await getDefaultConfig(native);
+      const metroRequire = createRequire(require.resolve('metro/package.json'));
+      const runtimeRoot = path.dirname(metroRequire.resolve('metro-runtime/package.json'));
+      const config = await withI18nMetro(
+        {
+          ...base,
+          maxWorkers: 1,
+          useWatchman: false,
+          watchFolders: [workspace, root, runtimeRoot],
+          resolver: {
+            ...base.resolver,
+            nodeModulesPaths: [path.join(root, 'node_modules'), path.dirname(runtimeRoot)],
+          },
+          transformer: { ...base.transformer, assetRegistryPath: path.join(native, 'registry.js') },
+          reporter: { update() {} },
+        },
+        { root: '..', dirs: ['src'] },
+      );
+      const result = await Metro.runBuild(config, {
+        entry: 'index.js',
+        platform,
+        dev: false,
+        minify: true,
+        assets: true,
+        sourceMap: false,
+      });
+      for (const messages of Object.values(texts)) assert.equal(result.code.includes(messages.hello), false);
+      assert.equal(result.assets.length, 3);
+      assert.ok(result.assets.every(asset => asset.type === 'i18npack'));
+      const readLanguages = [];
+      const context = { __registeredAssets: [], console, setTimeout, clearTimeout };
+      context.global = context;
+      context.__readAssetText = async id => {
+        const metadata = context.__registeredAssets[id - 1];
+        readLanguages.push(metadata.name);
+        const asset = result.assets.find(asset => asset.name === metadata.name);
+        return readFile(asset.files[0], 'utf8');
+      };
+      vm.runInNewContext(result.code, context);
+      assert.equal(context.__registeredAssets.length, 0);
+      assert.equal(context.__testInfo.__id, computeId(file, workspace));
+      await context.__testStore.loadLanguage();
+      assert.deepEqual(readLanguages.sort(), ['EN', 'UK']);
+      assert.equal(context.__getTestText('hello'), texts.EN.hello);
+      const artifact = path.join(native, `index.${platform}.bundle.js`);
+      await writeFile(artifact, result.code);
+      if (process.env.I18N_JSON_REACT_HERMES) {
+        const dictionaries = Object.fromEntries(
+          await Promise.all(result.assets.map(async asset => [asset.name, await readFile(asset.files[0], 'utf8')])),
+        );
+        const harness = `var global = this; global.console = { error: function(error) { print(String(error)); }, log: print, warn: print }; global.__registeredAssets = []; var reads = []; var dictionaries = ${JSON.stringify(dictionaries)};
 global.__readAssetText = function(id) { var language = global.__registeredAssets[id - 1].name; reads.push(language); return Promise.resolve(dictionaries[language]); };
 ${result.code}
 global.__testStore.loadLanguage().then(function() { if (reads.sort().join(',') !== 'EN,UK') throw new Error('Unexpected languages read: ' + reads); print(global.__getTestText('hello')); }, function(error) { throw error; });\n`;
-      const harnessPath = path.join(native, 'hermes-test.js');
-      await writeFile(harnessPath, harness);
-      const { stdout } = await exec(process.env.I18N_JSON_REACT_HERMES, [harnessPath]);
-      assert.ok(stdout.includes(texts.EN.hello));
-    }
-  },
-);
+        const harnessPath = path.join(native, 'hermes-test.js');
+        await writeFile(harnessPath, harness);
+        const { stdout } = await exec(process.env.I18N_JSON_REACT_HERMES, [harnessPath]);
+        assert.ok(stdout.includes(texts.EN.hello));
+      }
+    },
+  );
+}

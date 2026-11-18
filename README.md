@@ -1,6 +1,6 @@
 # i18n-json-react
 
-Feature-local JSON translations with typed keys, React hooks, and optional per-language Vite, Webpack, or Android Metro assets. No runtime dependencies other than the React peer for the main entry. The `/core` entry works without React; the optional Expo adapter uses native peer modules.
+Feature-local JSON translations with typed keys, React hooks, and optional per-language Vite, Webpack, or Android/iOS Metro assets. No runtime dependencies other than the React peer for the main entry. The `/core` entry works without React; the optional Expo adapter uses native peer modules.
 
 ## Install
 
@@ -216,13 +216,13 @@ Configuration:
 
 Language changes are explicit within each instance. Other libraries and browser tabs can follow `subscribe` and call `setCurrentLang` as needed.
 
-## Android / React Native
+## Android and iOS / React Native
 
-See the [Android integration guide](native/android/README.md) for Metro configuration, Expo SDK 54+ loading, native storage/locale setup, and a shared Health Ledger PWA/Android layout.
+See the [native integration guide](native/README.md) for Metro configuration, Expo SDK 54+ loading, native storage/locale setup, and a shared Health Ledger PWA/Android/iOS layout.
 
-The Android integration replaces feature imports with IDs and packages each locale as a separate data asset outside the main JavaScript/Hermes bundle. Only selected/fallback translations are read and parsed initially. All packaged locales remain available offline; use the build's `languages` option to reduce the APK language set.
+The native integration replaces feature imports with IDs and packages each locale as a separate data asset outside the main JavaScript/Hermes bundle. Only selected/fallback translations are read and parsed initially. All packaged locales remain available offline; use the build's `languages` option to reduce the packaged language set.
 
-Use `i18n-json-react/native/android/metro` at build time and `i18n-json-react/native/android/expo` in Expo startup code. Shared feature code keeps importing hooks/components and JSON normally. The same workspace root gives feature IDs matching the web builds.
+Use `i18n-json-react/native/metro` at build time and `i18n-json-react/native/expo` in Expo startup code. Shared feature code keeps importing hooks/components and JSON normally. The same workspace root gives feature IDs matching the web builds.
 
 Translation preparation runs at Metro startup: restart Metro after translation JSON changes. Web/Vite reload behavior is unchanged. The guide includes a preparation CLI for native type-checking and CI.
 
@@ -395,6 +395,6 @@ npm run check
 npm pack --dry-run
 ```
 
-`check` builds ESM and CommonJS with declaration/source maps, checks consumer types for both formats, and runs runtime, React, SSR, Vite build/dev-server, Webpack extraction/watch, and production Android Metro tests. Set `I18N_JSON_REACT_HERMES` to an installed Hermes CLI to also execute the Android bundle in Hermes. React, bundlers, and Expo modules are optional peers; install only those required by your entry points. There are no runtime `dependencies`.
+`check` builds ESM and CommonJS with declaration/source maps, checks consumer types for both formats, and runs runtime, React, SSR, Vite build/dev-server, Webpack extraction/watch, and production Android/iOS Metro tests. Set `I18N_JSON_REACT_HERMES` to an installed Hermes CLI to also execute both native bundles in Hermes. React, bundlers, and Expo modules are optional peers; install only those required by your entry points. There are no runtime `dependencies`.
 
 The package is currently marked `UNLICENSED`; choose a license before a public release. Nothing in the build publishes or commits changes.
