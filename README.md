@@ -397,4 +397,4 @@ npm pack --dry-run
 
 `check` builds ESM and CommonJS with declaration/source maps, checks consumer types for both formats, and runs runtime, React, SSR, Vite build/dev-server, Webpack extraction/watch, and production Android/iOS Metro tests. Set `I18N_JSON_REACT_HERMES` to an installed Hermes CLI to also execute both native bundles in Hermes. React, bundlers, and Expo modules are optional peers; install only those required by your entry points. There are no runtime `dependencies`.
 
-The package is currently marked `UNLICENSED`; choose a license before a public release. Nothing in the build publishes or commits changes.
+Licensed under the [MIT License](LICENSE). Nothing in the build publishes or commits changes.
