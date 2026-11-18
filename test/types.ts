@@ -13,6 +13,10 @@ import { createI18nStore, interpolateTypo as interpolateCore } from 'i18n-json-r
 import { I18nCollectPlugin, i18nLoaderRule } from 'i18n-json-react/webpack';
 import { i18nJsonPlugin, type I18nViteOptions } from 'i18n-json-react/vite';
 import type { Plugin } from 'vite';
+import { createAndroidDictionaryLoader, type AndroidLanguageAssets } from 'i18n-json-react/native/android';
+import { createExpoDictionaryLoader } from 'i18n-json-react/native/android/expo';
+import { prepareAndroidI18n, withI18nMetro } from 'i18n-json-react/native/android/metro';
+import type { ConfigT } from 'metro-config';
 import messages from './messages.json' with { type: 'json' };
 
 const i18n = createI18n({ supportedLanguages: ['en', 'uk', 'pt-BR'], fallbackLanguage: 'en' });
@@ -120,3 +124,20 @@ void vitePlugin;
 i18nJsonPlugin({ dirs: 'src' });
 // @ts-expect-error Deprecated proxy API is deliberately absent.
 i18n.createUseTypoHook(messages);
+
+const assets: AndroidLanguageAssets<'EN' | 'UK'> = { EN: () => 1, UK: () => 2 };
+const nativeLoader = createAndroidDictionaryLoader(assets, { readAssetText: async () => '{}' });
+nativeLoader('EN');
+createExpoDictionaryLoader(assets)('UK');
+createI18n({ supportedLanguages: ['EN', 'UK'], fallbackLanguage: 'UK', loadDictionary: nativeLoader });
+// @ts-expect-error Native loader only accepts languages in the generated manifest.
+nativeLoader('FR');
+// @ts-expect-error The generic adapter needs a native asset reader.
+createAndroidDictionaryLoader(assets);
+// @ts-expect-error The loader must support every configured language.
+createI18n({ supportedLanguages: ['EN', 'UK', 'FR'], fallbackLanguage: 'UK', loadDictionary: nativeLoader });
+prepareAndroidI18n({ projectRoot: 'native', root: '..', dirs: ['src', 'native'], languages: ['EN', 'UK'] });
+function checkMetro(config: ConfigT) {
+  return withI18nMetro(config, { root: '..', dirs: ['src', 'native'] });
+}
+void checkMetro;

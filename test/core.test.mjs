@@ -32,6 +32,20 @@ test('detects browser preferences using exact, script, regional and base matches
   );
 });
 
+test('React Native-style navigator without language fields uses the configured fallback', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { product: 'ReactNative' } });
+  try {
+    assert.equal(
+      createI18nStore({ supportedLanguages: ['UK', 'EN'], fallbackLanguage: 'UK', storage: false }).getCurrentLang(),
+      'UK',
+    );
+  } finally {
+    if (descriptor) Object.defineProperty(globalThis, 'navigator', descriptor);
+    else Reflect.deleteProperty(globalThis, 'navigator');
+  }
+});
+
 test('storage takes priority, explicit initial language takes priority over storage', () => {
   const values = new Map([['custom-language', 'uk-UA']]);
   const storage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };

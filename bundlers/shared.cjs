@@ -67,18 +67,21 @@ async function collectDictionaries(root, options = {}, onDirectory = () => {}) {
 
   const sortedFiles = [...files].sort();
   const perLanguage = new Map();
+  const fingerprints = new Map();
   const ids = new Map();
   for (const file of sortedFiles) {
     const id = computeId(file, root);
     if (ids.has(id)) throw new Error(`i18n ID collision: ${file} and ${ids.get(id)}`);
     ids.set(id, file);
-    const json = parseFeature(await readFile(file, 'utf8'), file);
+    const content = await readFile(file, 'utf8');
+    const json = parseFeature(content, file);
+    fingerprints.set(file, createHash('sha256').update(content).digest('hex'));
     for (const [language, messages] of Object.entries(json)) {
       if (!perLanguage.has(language)) perLanguage.set(language, Object.create(null));
       perLanguage.get(language)[id] = messages;
     }
   }
-  return { files: sortedFiles, perLanguage };
+  return { files: sortedFiles, perLanguage, fingerprints };
 }
 
 function isRecord(value) {

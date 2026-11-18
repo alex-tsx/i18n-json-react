@@ -2,6 +2,8 @@ import i18n = require('i18n-json-react');
 import core = require('i18n-json-react/core');
 import webpack = require('i18n-json-react/webpack');
 import vite = require('i18n-json-react/vite');
+import native = require('i18n-json-react/native/android');
+import expo = require('i18n-json-react/native/android/expo');
 
 const instance = i18n.createI18n({ supportedLanguages: ['en'], fallbackLanguage: 'en' });
 i18n.default.configure({ supportedLanguages: ['EN', 'UK'], fallbackLanguage: 'UK' });
@@ -19,3 +21,5 @@ configured.interpolateTypo('Hello, ${name}', { name: 'Alex' });
 i18n.interpolateTypo('Hello, {{name}}', { name: 'Alex' }, { prefix: '{{', suffix: '}}' });
 webpack.i18nLoaderRule();
 vite.i18nJsonPlugin();
+native.createAndroidDictionaryLoader({ UK: () => 1 }, { readAssetText: async () => '{}' })('UK');
+expo.createExpoDictionaryLoader({ UK: () => 1 })('UK');

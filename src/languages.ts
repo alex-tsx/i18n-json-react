@@ -43,7 +43,13 @@ export function detectLanguage<L extends string>(
 
   const browserLanguages =
     options.getBrowserLanguages?.() ??
-    (typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language]);
+    (typeof navigator === 'undefined'
+      ? []
+      : navigator.languages?.length
+        ? navigator.languages
+        : navigator.language
+          ? [navigator.language]
+          : []);
   for (const tag of browserLanguages) {
     const language = resolve(tag);
     if (language !== undefined) return language;
