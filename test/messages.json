@@ -1,0 +1,4 @@
+{
+  "en": { "hello": "Hello, {name}", "buttons.save": "Save" },
+  "uk": { "hello": "Вітаю, {name}", "buttons.save": "Зберегти", "onlyUk": "Лише українською" }
+}
