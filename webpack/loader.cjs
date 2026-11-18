@@ -1,5 +1,5 @@
 const path = require('node:path');
-const { resolveRoot, computeId, parseFeature } = require('./utils.cjs');
+const { resolveRoot, computeId, parseFeature } = require('../bundlers/shared.cjs');
 
 /** Replaces a feature dictionary with an opaque ID while TypeScript still sees the original JSON. */
 module.exports = function i18nJsonLoader(content) {

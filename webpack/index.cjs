@@ -1,9 +1,7 @@
-const { glob, readFile, realpath, stat } = require('node:fs/promises');
 const path = require('node:path');
-const { resolveRoot, computeId, parseFeature } = require('./utils.cjs');
+const { resolveRoot, resolveOutputDir, collectDictionaries } = require('../bundlers/shared.cjs');
 
 const PLUGIN_NAME = 'I18nCollectPlugin';
-const DEFAULT_EXCLUDE = ['**/node_modules/**', '**/ide_node_modules/**', '**/.git/**'];
 
 /** Rule that substitutes imported i18n.json and *.i18n.json files with { __id }. */
 function i18nLoaderRule(options = {}) {
@@ -23,29 +21,16 @@ class I18nCollectPlugin {
 
   apply(compiler) {
     const { Compilation, sources } = compiler.webpack;
-    const outputDir = this.options.outputDir ?? 'i18n';
-    if (path.isAbsolute(outputDir) || outputDir.includes('\\') || outputDir.split('/').includes('..')) {
-      throw new Error('I18nCollectPlugin outputDir must be a relative POSIX asset path');
-    }
+    const outputDir = resolveOutputDir(this.options.outputDir);
     compiler.hooks.thisCompilation.tap(PLUGIN_NAME, compilation => {
       compilation.hooks.processAssets.tapPromise(
         { name: PLUGIN_NAME, stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS },
         async () => {
           const root = resolveRoot(compiler.context, this.options.root);
-          const files = await findFiles(root, this.options, compilation);
-          const perLanguage = new Map();
-          const ids = new Map();
-          for (const file of files) {
-            const id = computeId(file, root);
-            if (ids.has(id)) throw new Error(`i18n ID collision: ${file} and ${ids.get(id)}`);
-            ids.set(id, file);
-            compilation.fileDependencies.add(file);
-            const json = parseFeature(await readFile(file, 'utf8'), file);
-            for (const [language, messages] of Object.entries(json)) {
-              if (!perLanguage.has(language)) perLanguage.set(language, Object.create(null));
-              perLanguage.get(language)[id] = messages;
-            }
-          }
+          const { files, perLanguage } = await collectDictionaries(root, this.options, dir => {
+            compilation.contextDependencies.add(dir);
+          });
+          for (const file of files) compilation.fileDependencies.add(file);
           for (const [language, dictionary] of perLanguage) {
             compilation.emitAsset(
               path.posix.join(outputDir, `${language}.json`),
@@ -56,35 +41,6 @@ class I18nCollectPlugin {
       );
     });
   }
-}
-
-async function findFiles(root, options, compilation) {
-  const files = new Set();
-  const excludes = options.exclude ?? [];
-  // Watch the root too, so creating a new feature dictionary triggers a rebuild.
-  compilation.contextDependencies.add(root);
-  for (const pattern of options.dirs ?? ['.']) {
-    const dirs = /[*?[\]{}]/.test(pattern) ? glob(pattern, { cwd: root }) : [pattern];
-    for await (const dir of dirs) {
-      const absolute = path.resolve(root, dir);
-      let stats;
-      try {
-        stats = await stat(absolute);
-      } catch (error) {
-        if (error.code === 'ENOENT') continue;
-        throw error;
-      }
-      if (!stats.isDirectory()) continue;
-      compilation.contextDependencies.add(absolute);
-      for await (const file of glob('**/{i18n,*.i18n}.json', { cwd: absolute, exclude: DEFAULT_EXCLUDE })) {
-        const fullPath = path.resolve(absolute, file);
-        const relative = path.relative(root, fullPath).split(path.sep).join('/');
-        if (excludes.some(exclude => path.matchesGlob(relative, exclude))) continue;
-        files.add(await realpath(fullPath));
-      }
-    }
-  }
-  return [...files].sort();
 }
 
 module.exports = { i18nLoaderRule, I18nCollectPlugin };

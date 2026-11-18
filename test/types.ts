@@ -1,6 +1,8 @@
 import { createI18n, type DictionaryReference } from 'i18n-json-react';
 import { createI18nStore } from 'i18n-json-react/core';
 import { I18nCollectPlugin, i18nLoaderRule } from 'i18n-json-react/webpack';
+import { i18nJsonPlugin, type I18nViteOptions } from 'i18n-json-react/vite';
+import type { Plugin } from 'vite';
 import messages from './messages.json' with { type: 'json' };
 
 const i18n = createI18n({ supportedLanguages: ['en', 'uk', 'pt-BR'], fallbackLanguage: 'en' });
@@ -50,5 +52,10 @@ i18n.createTypoGetter(ref)('bad');
 createI18nStore({ supportedLanguages: ['en'], fallbackLanguage: 'en' });
 new I18nCollectPlugin({ dirs: ['.'], outputDir: 'assets/i18n' });
 i18nLoaderRule();
+const viteOptions: I18nViteOptions = { root: '.', dirs: ['.'], exclude: ['scripts/**'], outputDir: 'locales' };
+const vitePlugin: Plugin = i18nJsonPlugin(viteOptions);
+void vitePlugin;
+// @ts-expect-error Invalid Vite option type.
+i18nJsonPlugin({ dirs: 'src' });
 // @ts-expect-error Deprecated proxy API is deliberately absent.
 i18n.createUseTypoHook(messages);

@@ -1,6 +1,6 @@
 # i18n-json-react
 
-Feature-local JSON translations with typed keys, React hooks, and optional per-language Webpack bundles. No runtime dependencies other than the React peer. The `/core` entry works without React.
+Feature-local JSON translations with typed keys, React hooks, and optional per-language Vite or Webpack bundles. No runtime dependencies other than the React peer. The `/core` entry works without React.
 
 ## Install
 
@@ -91,6 +91,41 @@ Configuration:
 
 Language changes are explicit within each instance. Other libraries and browser tabs can follow `subscribe` and call `setCurrentLang` as needed.
 
+## Extract language files with Vite 7 or 8
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { i18nJsonPlugin } from 'i18n-json-react/vite';
+
+export default defineConfig({
+  plugins: [i18nJsonPlugin({ exclude: ['scripts/**'] })],
+});
+```
+
+The plugin replaces default imports of `i18n.json` and `*.i18n.json` with feature IDs. Production builds emit `i18n/<language>.json`; during development the Vite server serves the same files under the configured `base` path. A translation edit, addition, or deletion triggers a full page reload so cached language resources are recreated. No query provider or additional client code is needed.
+
+Use the same runtime loading setup described below. For Vite, include its public base path:
+
+```ts
+loadDictionary: createFetchDictionaryLoader({
+  baseUrl: `${import.meta.env.BASE_URL}i18n`,
+}),
+```
+
+Options:
+
+| Option      | Default / behavior                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------ |
+| `root`      | Vite's project root; an explicit path can be absolute or relative to that root                   |
+| `dirs`      | `['.']`; directory globs relative to `root`                                                      |
+| `exclude`   | File/directory globs relative to `root`; Vite's build output directory is excluded automatically |
+| `outputDir` | `i18n`; relative emitted and served directory; match the runtime loader's `baseUrl`              |
+
+For example, use `dirs: ['.', 'node_modules/@your-org/*']` to collect dependency dictionaries. Nested dependency folders and `.git` are skipped. The Vite and Webpack integrations share validation, collection, and ID generation. JSON excluded from collection stays inline; explicit `?raw` and `?url` imports keep Vite's normal behavior.
+
+If Vite prebundles a dependency that imports these JSON files, add that package to `optimizeDeps.exclude` so the plugin can process its source imports. Put translated source files outside Vite's `publicDir`, whose contents are copied as static files without module processing.
+
 ## Extract language files with Webpack 5
 
 The optional loader replaces each JSON import with `{ __id: "..." }`. The collector emits `i18n/<language>.json`, containing feature IDs and their messages. Original JSON files still provide TypeScript's key inference. The same runtime API works with inline imports or extracted references.
@@ -119,7 +154,9 @@ It collects all matching files under those directories, including files that are
 
 Both helpers accept `root`, an absolute path or a path relative to Webpack's context. Set the same root on both. `outputDir` is a relative emitted asset path, defaulting to `i18n`. The plugin and runtime emit/load the exact language identifiers from your JSON. JSON must contain objects of string messages; invalid input fails the build.
 
-Configure fetching:
+## Load extracted translations
+
+Configure fetching for either bundler:
 
 ```ts
 import { createI18n, createFetchDictionaryLoader } from 'i18n-json-react';
@@ -221,6 +258,6 @@ npm run check
 npm pack --dry-run
 ```
 
-`check` builds ESM and CommonJS with declaration/source maps, checks consumer types for both formats, and runs runtime, React, SSR, Webpack extraction, and watch tests. React and Webpack are optional peers: install React for the main entry, and Webpack only when using extraction. There are no runtime `dependencies`.
+`check` builds ESM and CommonJS with declaration/source maps, checks consumer types for both formats, and runs runtime, React, SSR, Vite build/dev-server, Webpack extraction, and watch tests. React, Vite, and Webpack are optional peers: install React for the main entry and the appropriate bundler for extraction. There are no runtime `dependencies`.
 
 The package is currently marked `UNLICENSED`; choose a license before a public release. Nothing in the build publishes or commits changes.
