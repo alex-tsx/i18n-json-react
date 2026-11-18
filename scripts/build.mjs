@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, rm, writeFile } from 'node:fs/promises';
 import ts from 'typescript';
 
 const configPath = ts.findConfigFile(process.cwd(), ts.sys.fileExists, 'tsconfig.json');
@@ -8,6 +8,9 @@ if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.m
 const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, process.cwd());
 if (parsed.errors.length) fail(parsed.errors);
 await rm('dist', { recursive: true, force: true });
+// Both module formats refer to the same augmentation interface, rather than separate copies.
+await mkdir('dist/types', { recursive: true });
+await copyFile('types/registry.d.cts', 'dist/types/registry.d.cts');
 
 for (const format of ['esm', 'cjs']) {
   const options = { ...parsed.options, outDir: `dist/${format}` };

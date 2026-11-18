@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "skipLibCheck": false, "types": [] },
+  "include": ["./registration.d.ts", "./types-registered.ts", "./types-registered.cts"]
+}

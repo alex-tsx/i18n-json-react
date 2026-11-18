@@ -40,6 +40,7 @@
   "files": [
     "dist",
     "src",
+    "types",
     "webpack",
     "vite",
     "bundlers",
@@ -48,7 +49,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "npm run build && tsc -p test/tsconfig.json",
+    "typecheck": "npm run build && tsc -p test/tsconfig.json && tsc -p test/tsconfig.registered.json && tsc -p test/tsconfig.languages-only.json && tsc -p test/tsconfig.registration-commonjs.json",
     "test": "npm run build && node --test test/*.test.mjs",
     "check": "npm run typecheck && node --test test/*.test.mjs",
     "prepack": "npm run build"

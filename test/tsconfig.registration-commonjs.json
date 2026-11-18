@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "skipLibCheck": false, "types": [] },
+  "include": ["./registration-commonjs.d.cts", "./types-registration-commonjs.cts"]
+}

@@ -1,7 +1,11 @@
+import type { RegisteredFallbackLanguage, SupportedLanguage } from '../types/registry.cjs';
+
+export type { CustomTypeOptions, RegisteredFallbackLanguage, SupportedLanguage } from '../types/registry.cjs';
+
 export type Messages = Readonly<Record<string, string | undefined>>;
 
 /** A feature's original JSON: language -> flat translation keys. */
-export type FeatureDictionary = Readonly<Record<string, Messages>>;
+export type FeatureDictionary<L extends string = string> = Readonly<Partial<Record<L, Messages>>>;
 
 /** Emitted by the Webpack loader. The optional phantom field preserves keys for custom loaders. */
 export interface DictionaryReference<K extends string = string> {
@@ -11,8 +15,14 @@ export interface DictionaryReference<K extends string = string> {
 
 export type DictionaryInput = FeatureDictionary | DictionaryReference;
 
+/** Imported variables need an exact key check: structural object typing alone permits extra locales. */
+export type CheckedDictionary<D extends DictionaryInput, L extends string, F extends string = never> = D &
+  (NoInfer<D> extends DictionaryReference
+    ? unknown
+    : Record<Exclude<keyof NoInfer<D>, L>, never> & Record<F, Messages>);
+
 export type DictionaryKeys<D extends DictionaryInput> =
-  D extends DictionaryReference<infer K> ? K : { [L in keyof D]: keyof D[L] }[keyof D] & string;
+  D extends DictionaryReference<infer K> ? K : { [L in keyof D]: keyof NonNullable<D[L]> }[keyof D] & string;
 
 /** Contents of one emitted language file: feature ID -> translations. */
 export type LanguageDictionary = Readonly<Record<string, Messages | undefined>>;
@@ -80,6 +90,15 @@ export interface GetterOptions<L extends string> {
   language?: L;
   placehold?: boolean;
 }
+
+/** Runtime configuration must agree with any application-wide language/fallback declaration. */
+export type DefaultI18nOptions<L extends SupportedLanguage = SupportedLanguage> = I18nOptions<L> &
+  ([RegisteredFallbackLanguage] extends [never] ? unknown : { fallbackLanguage: RegisteredFallbackLanguage }) &
+  (string extends SupportedLanguage
+    ? unknown
+    : [SupportedLanguage] extends [NoInfer<L>]
+      ? unknown
+      : { supportedLanguages: never });
 
 export interface LoadOptions {
   /** Retry a failed language request. Successful requests stay cached. */

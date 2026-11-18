@@ -83,6 +83,19 @@ const Text = i18n.createTypo(messages, 'buttons.');
 Text({ id: 'save' });
 // @ts-expect-error Component keys respect prefixes.
 Text({ id: 'hello' });
+const unsupportedMessages = { en: { hello: 'Hello' }, fr: { hello: 'Bonjour' } };
+// @ts-expect-error Isolated instances reject unsupported dictionary locales, including variables.
+i18n.createTypo(unsupportedMessages);
+// @ts-expect-error Isolated hook factories reject unsupported locales.
+i18n.createUseTypo(unsupportedMessages);
+// @ts-expect-error Isolated getters reject unsupported locales.
+i18n.createTypoGetter(unsupportedMessages);
+// @ts-expect-error Isolated object hooks reject unsupported locales.
+i18n.useTypoAsObject(unsupportedMessages);
+const coreInstance = createI18nStore({ supportedLanguages: ['en', 'uk'], fallbackLanguage: 'en' });
+// @ts-expect-error React-independent dictionaries use their store's language union.
+coreInstance.createTypoGetter(unsupportedMessages);
+coreInstance.createTypoGetter({ en: { hello: 'Hello' } })('hello');
 const ref: DictionaryReference<'hello'> = { __id: 'test' };
 i18n.createTypoGetter(ref)('hello');
 // @ts-expect-error Custom loader references preserve keys.

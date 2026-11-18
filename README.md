@@ -59,7 +59,7 @@ The default export and package-level translation helpers share one configuration
 
 `configure` accepts the same options as `createI18n`. Calling it again replaces the whole configuration, resets language detection and dictionary caches, and updates existing helpers and mounted roots. Include the supported languages and fallback on every call. Invalid options leave the active configuration intact. Use `setCurrentLang` for ordinary language switching.
 
-For independent applications, server requests, or a compile-time language union on the returned helpers, create an isolated instance instead:
+For independent applications or server requests, create an isolated instance instead:
 
 ```ts
 import { createI18n } from 'i18n-json-react';
@@ -72,11 +72,67 @@ export const i18n = createI18n({
 export const { createUseTypo, createTypo, useI18nLanguage, setCurrentLang } = i18n;
 ```
 
-Factory-created instances are independent of `I18N.configure`. Package-level helpers validate language choices at runtime; translation keys and prefixes retain their JSON-based types in both APIs.
+Factory-created instances are independent of `I18N.configure`. Their configured language union checks both language operations and feature dictionary locale keys. Package-level helpers can obtain the same checks through an application declaration, described below. Translation keys and prefixes retain their JSON-based types in both APIs.
 
 `t` is callable and supports `const { t } = useProfileTypo()`. Unknown keys fail type checking; a prefix limits keys to the matching suffixes. Missing messages fall back per key to `fallbackLanguage`, then to `i18n(key)`. Pass `{ placehold: false }` to return `''` for missing messages. Empty translations stay empty.
 
 Interpolation replaces `{name}` with string/number values. Missing, `null`, and `undefined` values become empty strings. Values are plain text; render them normally in React. ICU messages, automatic plural rules, nested key traversal, and HTML parsing are outside this package's scope. Use `Intl` for dates and numbers.
+
+### Application-wide TypeScript configuration
+
+Runtime calls to `I18N.configure` cannot change types in other modules. Register the shared instance's language types by augmenting `CustomTypeOptions` in a separate declaration file included by your `tsconfig.json`:
+
+```ts
+// src/i18n-types.d.ts
+import 'i18n-json-react';
+
+declare module 'i18n-json-react' {
+  interface CustomTypeOptions {
+    supportedLanguages: 'EN' | 'UK';
+    fallbackLanguage: 'UK';
+  }
+}
+```
+
+This checks imported JSON variables at each dictionary-taking helper (`createTypo`, `createUseTypo`, `createTypoGetter`, `useTypoAsObject`, and `getTypoAsObject`). The default export and named helpers use the same declaration in ESM and CommonJS.
+
+```ts
+import I18N, { createTypo, setCurrentLang } from 'i18n-json-react';
+import messages from './i18n.json';
+
+I18N.configure({ supportedLanguages: ['EN', 'UK'], fallbackLanguage: 'UK' });
+const Text = createTypo(messages); // Rejects unknown locale keys or a missing UK entry.
+setCurrentLang('EN');
+setCurrentLang('FR'); // Type error.
+```
+
+- `supportedLanguages` is a union of exact JSON locale identifiers. Unknown identifiers, including a casing mismatch, are type errors. Runtime configuration must include the declared language set.
+- `fallbackLanguage` is optional in the declaration. When provided, runtime configuration must use that fallback and feature JSON must contain its entry. Other supported locales and individual message keys may remain partial.
+- Translation keys and prefixes are still inferred from each JSON import. An opaque `DictionaryReference` preserves its declared keys; it no longer contains locale entries to check.
+- Without an application declaration, shared helpers continue to accept arbitrary locale identifiers. Isolated `createI18n` and `/core` stores always check their own configured language union and do not inherit the global declaration.
+
+Keep runtime and type configuration together by deriving the declaration from shared constants:
+
+```ts
+// src/i18n-config.ts
+export const SUPPORTED_LANGUAGES = ['EN', 'UK'] as const;
+export const FALLBACK_LANGUAGE = 'UK';
+```
+
+```ts
+// src/i18n-types.d.ts
+import 'i18n-json-react';
+import type { FALLBACK_LANGUAGE, SUPPORTED_LANGUAGES } from './i18n-config.js';
+
+declare module 'i18n-json-react' {
+  interface CustomTypeOptions {
+    supportedLanguages: (typeof SUPPORTED_LANGUAGES)[number];
+    fallbackLanguage: typeof FALLBACK_LANGUAGE;
+  }
+}
+```
+
+Pass those same constants to `I18N.configure({ supportedLanguages: SUPPORTED_LANGUAGES, fallbackLanguage: FALLBACK_LANGUAGE })` during startup. The declaration is type-only and does not perform runtime configuration. Checks occur at the helper call using the original imported JSON; they do not install a JSON editor schema or check files that are never passed to a typed helper.
 
 ### Custom interpolation delimiters
 

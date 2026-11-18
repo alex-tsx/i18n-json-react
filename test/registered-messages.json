@@ -1,0 +1,4 @@
+{
+  "UK": { "hello": "Вітаю, {name}", "buttons.save": "Зберегти", "fallback": "Резерв" },
+  "EN": { "hello": "Hello, {name}", "buttons.save": "Save" }
+}

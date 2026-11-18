@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useMemo, useSyncExternalStore } from 'react';
 import type { NamedExoticComponent } from 'react';
-import type { I18nStore } from './core.js';
+import type { I18nStore } from './store.js';
 import { isReference } from './dictionaries.js';
 import type {
   DictionaryInput,
