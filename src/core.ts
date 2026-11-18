@@ -1,4 +1,5 @@
-import { getMessages, interpolateTypo, validateLanguageDictionary } from './dictionaries.js';
+import { getMessages, validateLanguageDictionary } from './dictionaries.js';
+import { createInterpolator } from './interpolation.js';
 import { createLanguageResolver, detectLanguage } from './languages.js';
 import { createAsyncResource } from './resource.js';
 import type { AsyncResource } from './resource.js';
@@ -14,11 +15,12 @@ import type {
   Messages,
 } from './types.js';
 
-export { interpolateTypo } from './dictionaries.js';
+export { interpolateTypo } from './interpolation.js';
 export type * from './types.js';
 
 /** A React-independent store. Share one instance between roots, or create one per SSR request. */
 export function createI18nStore<const L extends string>(options: I18nOptions<L>) {
+  const interpolate = createInterpolator(options.interpolation);
   const languages = Object.freeze([...options.supportedLanguages]);
   const supported = new Set(languages);
   if (!supported.has(options.fallbackLanguage)) throw new Error('fallbackLanguage must be supported');
@@ -94,6 +96,8 @@ export function createI18nStore<const L extends string>(options: I18nOptions<L>)
   return {
     supportedLanguages: languages,
     fallbackLanguage: options.fallbackLanguage,
+    /** Interpolates with this instance's configured delimiters. */
+    interpolateTypo: interpolate,
     resolveLanguage,
     getCurrentLang,
     /** A stable SSR snapshot; match initialLanguage between server and client for hydration. */
@@ -136,7 +140,7 @@ export function createI18nStore<const L extends string>(options: I18nOptions<L>)
           ownMessage(selected, key) ??
           ownMessage(fallback, key) ??
           (getterOptions.placehold === false ? '' : `i18n(${key})`);
-        return values ? interpolateTypo(template, values) : template;
+        return values ? interpolate(template, values) : template;
       };
     },
     getTypoAsObject,

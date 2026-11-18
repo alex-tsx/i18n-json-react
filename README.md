@@ -22,24 +22,22 @@ Keep translations beside the feature, in `i18n.json` or `*.i18n.json`. Language 
 }
 ```
 
-Create one instance and share its helpers throughout your app:
+Configure the shared default instance during application startup:
 
 ```ts
 // i18n.ts
-import { createI18n } from 'i18n-json-react';
+import I18N from 'i18n-json-react';
 
-export const i18n = createI18n({
+I18N.configure({
   supportedLanguages: ['en', 'uk', 'pt-BR'],
   fallbackLanguage: 'en',
 });
-
-export const { createUseTypo, createTypo, useI18nLanguage, setCurrentLang } = i18n;
 ```
 
 ```tsx
 // profile.tsx
 import { memo } from 'react';
-import { createUseTypo } from './i18n';
+import { createUseTypo } from 'i18n-json-react';
 import messages from './i18n.json';
 
 const useProfileTypo = createUseTypo(messages);
@@ -57,9 +55,68 @@ export const Profile = memo(function Profile() {
 
 Inline imports work in Webpack, Vite, and other bundlers without a plugin, provider, loader component, or Suspense. All imported languages remain in the JavaScript bundle. Create hooks and translation components at module scope, outside render.
 
+The default export and package-level translation helpers share one configuration. `createUseTypo`, `createTypo`, and `createTypoGetter` can run before `configure`, so importing feature modules before startup configuration is safe. Call `configure` before rendering translations or reading language state; otherwise those reads throw a setup error. There are no implicit supported languages. Import your setup module from the application entry point before rendering.
+
+`configure` accepts the same options as `createI18n`. Calling it again replaces the whole configuration, resets language detection and dictionary caches, and updates existing helpers and mounted roots. Include the supported languages and fallback on every call. Invalid options leave the active configuration intact. Use `setCurrentLang` for ordinary language switching.
+
+For independent applications, server requests, or a compile-time language union on the returned helpers, create an isolated instance instead:
+
+```ts
+import { createI18n } from 'i18n-json-react';
+
+export const i18n = createI18n({
+  supportedLanguages: ['en', 'uk'],
+  fallbackLanguage: 'en',
+});
+
+export const { createUseTypo, createTypo, useI18nLanguage, setCurrentLang } = i18n;
+```
+
+Factory-created instances are independent of `I18N.configure`. Package-level helpers validate language choices at runtime; translation keys and prefixes retain their JSON-based types in both APIs.
+
 `t` is callable and supports `const { t } = useProfileTypo()`. Unknown keys fail type checking; a prefix limits keys to the matching suffixes. Missing messages fall back per key to `fallbackLanguage`, then to `i18n(key)`. Pass `{ placehold: false }` to return `''` for missing messages. Empty translations stay empty.
 
 Interpolation replaces `{name}` with string/number values. Missing, `null`, and `undefined` values become empty strings. Values are plain text; render them normally in React. ICU messages, automatic plural rules, nested key traversal, and HTML parsing are outside this package's scope. Use `Intl` for dates and numbers.
+
+### Custom interpolation delimiters
+
+Set `interpolation` in `I18N.configure` or when creating an instance. Both delimiters are literal, nonempty strings; the default is `{ prefix: '{', suffix: '}' }`.
+
+```ts
+const i18n = createI18n({
+  supportedLanguages: ['en', 'uk'],
+  fallbackLanguage: 'en',
+  interpolation: { prefix: '${', suffix: '}' },
+});
+
+const t = i18n.createTypoGetter({ en: { hello: 'Hello, ${name}' } });
+t('hello', { name: 'Alex' }); // "Hello, Alex"
+```
+
+The instance configuration applies to hooks, translation components, getters, fallback messages, and both inline and extracted dictionaries. Delimiters are compiled once per instance. Existing JSON files need no build-tool configuration change.
+
+| Placeholder                 | `prefix`           | `suffix`           |
+| --------------------------- | ------------------ | ------------------ |
+| `{name}` (default)          | `{`                | `}`                |
+| `{{name}}`                  | `{{`               | `}}`               |
+| `${name}`                   | `${`               | `}`                |
+| `$${name}`                  | `$${`              | `}`                |
+| `"name"`                    | `"`                | `"`                |
+| `'name'`                    | `'`                | `'`                |
+| <code>&#96;name&#96;</code> | <code>&#96;</code> | <code>&#96;</code> |
+
+Parameter names support ASCII letters, digits, underscores, dots, and hyphens. Quote delimiters treat quoted parameter names as placeholders, so choose them accordingly for text that also uses quotation marks. Missing values keep the same empty-string behavior for every delimiter pair. Calling a translator without values leaves its template unchanged.
+
+For a standalone template, pass the delimiters as the third argument, or use the instance's configured helper:
+
+```ts
+import { interpolateTypo } from 'i18n-json-react';
+
+interpolateTypo('Hello, {{name}}', { name: 'Alex' }, { prefix: '{{', suffix: '}}' });
+i18n.interpolateTypo('Hello, ${name}', { name: 'Alex' });
+```
+
+`I18N.interpolateTypo` uses the shared configuration. The standalone named `interpolateTypo` helper remains independent: it uses `{name}` unless its third argument supplies custom delimiters.
 
 ## Language selection
 
@@ -75,6 +132,17 @@ Each instance shares its language across all roots and non-React callers. Separa
 
 On first use, selection checks `initialLanguage`, the saved choice, browser preferences, then the fallback. Locale matching ignores case and treats `_` as `-`; an exact regional or script match wins, then progressively shorter tags (`zh-Hant-TW` → `zh-Hant` → `zh`). Matching returns the configured spelling. A generic language does not arbitrarily choose a region (`pt` does not choose `pt-BR`). There are no application-specific locale aliases. Use matching identifiers in your config and JSON files, including case.
 
+Uppercase identifiers work with either API:
+
+```ts
+import I18N, { setCurrentLang } from 'i18n-json-react';
+
+I18N.configure({ supportedLanguages: ['EN', 'UK'], fallbackLanguage: 'UK' });
+setCurrentLang('EN');
+```
+
+Use `EN` and `UK` keys in your JSON. Browser preferences such as `en-US` and `uk-UA` resolve to those configured spellings, and extracted files are named `EN.json` and `UK.json`.
+
 Configuration:
 
 | Option                | Default / behavior                                                                                      |
@@ -84,6 +152,7 @@ Configuration:
 | `initialLanguage`     | Explicit initial choice; useful for SSR and controlled startup                                          |
 | `storage`             | Browser `localStorage`; `false` disables persistence; accepts a synchronous `getItem`/`setItem` adapter |
 | `storageKey`          | `i18n-language`; stores plain strings such as `pt-BR`                                                   |
+| `interpolation`       | `{ prefix: '{', suffix: '}' }`; literal placeholder delimiters for all instance translators             |
 | `getBrowserLanguages` | `navigator.languages`, then `navigator.language`; accepts a custom function for nonbrowser hosts        |
 | `onError`             | `console.error`; reports storage access failures while language switching continues                     |
 | `loadDictionary`      | Optional async loader for extracted language files                                                      |
@@ -159,9 +228,9 @@ Both helpers accept `root`, an absolute path or a path relative to Webpack's con
 Configure fetching for either bundler:
 
 ```ts
-import { createI18n, createFetchDictionaryLoader } from 'i18n-json-react';
+import I18N, { createFetchDictionaryLoader } from 'i18n-json-react';
 
-export const i18n = createI18n({
+I18N.configure({
   supportedLanguages: ['en', 'uk', 'pt-BR'],
   fallbackLanguage: 'en',
   loadDictionary: createFetchDictionaryLoader({ baseUrl: '/i18n' }),
@@ -172,9 +241,7 @@ export const i18n = createI18n({
 
 ```tsx
 import { Suspense } from 'react';
-import { i18n } from './i18n';
-
-const { LoaderForI18N } = i18n;
+import { LoaderForI18N } from 'i18n-json-react';
 
 <Suspense fallback={<span>Loading translations…</span>}>
   <LoaderForI18N />
@@ -187,36 +254,40 @@ Extracted translation hooks also suspend automatically, so `LoaderForI18N` is op
 A small internal resource caches each language's promise, result, or error. It loads the fallback and selected language concurrently, deduplicates requests across roots, and never refetches successful files automatically. A failed file throws to the error boundary; it does not silently mark a failed request as loaded.
 
 ```ts
-await i18n.loadLanguage('pt-BR'); // Preload selected language and fallback without changing the language.
-i18n.setCurrentLang('pt-BR');
+await I18N.loadLanguage('pt-BR'); // Preload selected language and fallback without changing the language.
+I18N.setCurrentLang('pt-BR');
 
 // After a failure: retry the request, then reset your error boundary.
-await i18n.loadLanguage('pt-BR', { retry: true });
+await I18N.loadLanguage('pt-BR', { retry: true });
 ```
 
-Serve matching JavaScript and dictionary assets together, with an appropriate HTTP cache policy. Use a fresh instance or reload the page to load a new version of a successfully cached dictionary.
+Serve matching JavaScript and dictionary assets together, with an appropriate HTTP cache policy. Use a fresh instance, reconfigure the default instance, or reload the page to load a new version of a successfully cached dictionary.
 
 ## Other helpers
 
 ```tsx
-const Text = i18n.createTypo(messages);
+import { createTypo, useTypoAsObject } from 'i18n-json-react';
+
+const Text = createTypo(messages);
 <Text id="hello" values={{ name: 'Alex' }} />;
 
-const ButtonText = i18n.createTypo(messages, 'buttons.');
+const ButtonText = createTypo(messages, 'buttons.');
 <ButtonText id="save" />;
 
 // In a component: a memoized object merged with the fallback.
-const texts = i18n.useTypoAsObject(messages);
+const texts = useTypoAsObject(messages);
 // Each property's value is string | undefined; missing values are not placeholders.
 ```
 
 For non-React code:
 
 ```ts
-const getText = i18n.createTypoGetter(messages);
+import { createTypoGetter } from 'i18n-json-react';
+
+const getText = createTypoGetter(messages);
 getText('hello', { name: 'Alex' });
 
-const getEnglish = i18n.createTypoGetter(messages, { language: 'en', placehold: false });
+const getEnglish = createTypoGetter(messages, { language: 'en', placehold: false });
 ```
 
 Getters follow the current language unless fixed explicitly. They do not subscribe, fetch, or suspend. With extracted files, await `loadLanguage` before calling them. In React render, use the hooks/components so language changes rerender your UI.

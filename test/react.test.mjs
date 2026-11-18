@@ -131,3 +131,42 @@ test('SSR uses a stable language snapshot and supports preloaded extracted dicti
   assert.equal(renderToString(h(First)), 'Зберегти');
   assert.equal(renderToString(h(Second)), 'Save');
 });
+
+test('custom interpolation works in hooks, components and extracted translations across language changes', async () => {
+  const messages = {
+    en: { 'greet.hello': 'Hello, $${name}', fallback: 'Fallback $${name}' },
+    uk: { 'greet.hello': 'Вітаю, $${name}' },
+  };
+  const i18n = createI18n({
+    ...options,
+    interpolation: { prefix: '$${', suffix: '}' },
+    dictionaries: { en: { feature: messages.en }, uk: { feature: messages.uk } },
+  });
+  const useText = i18n.createUseTypo(messages);
+  const useExtracted = i18n.createUseTypo({ __id: 'feature' });
+  const Text = i18n.createTypo(messages, 'greet.');
+  const ExtractedText = i18n.createTypo({ __id: 'feature' });
+  function View() {
+    const t = useText({ keyPrefix: 'greet.' });
+    const extracted = useExtracted();
+    return h(
+      'p',
+      null,
+      t('hello', { name: 'A' }),
+      '|',
+      h(Text, { id: 'hello', values: { name: 'B' } }),
+      '|',
+      extracted('fallback', { name: 'C' }),
+      '|',
+      h(ExtractedText, { id: 'greet.hello', values: { name: 'D' } }),
+    );
+  }
+  let root;
+  await act(async () => {
+    root = create(h(View));
+  });
+  assert.equal(root.toJSON().children.join(''), 'Hello, A|Hello, B|Fallback C|Hello, D');
+  await act(async () => i18n.setCurrentLang('uk'));
+  assert.equal(root.toJSON().children.join(''), 'Вітаю, A|Вітаю, B|Fallback C|Вітаю, D');
+  await act(async () => root.unmount());
+});

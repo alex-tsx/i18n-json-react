@@ -19,6 +19,13 @@ export type LanguageDictionary = Readonly<Record<string, Messages | undefined>>;
 
 export type InterpolationValues = Readonly<Record<string, string | number | null | undefined>>;
 
+export interface InterpolationDelimiters {
+  /** Literal opening delimiter, e.g. '{', '{{', '${', or a quote. Must not be empty. */
+  readonly prefix: string;
+  /** Literal closing delimiter, e.g. '}', '}}', or the same quote. Must not be empty. */
+  readonly suffix: string;
+}
+
 export type RemovePrefix<K extends string, P extends string> = K extends `${P}${infer Suffix}` ? Suffix : never;
 
 export interface Typo<K extends string> {
@@ -56,6 +63,8 @@ export interface I18nOptions<L extends string> {
   /** Defaults to browser localStorage. false disables persistence. Values are plain language strings. */
   storage?: StorageAdapter | false;
   storageKey?: string;
+  /** Interpolation placeholder delimiters. Defaults to { prefix: '{', suffix: '}' }. */
+  interpolation?: InterpolationDelimiters;
   /** Defaults to navigator.languages, with navigator.language as a fallback. */
   getBrowserLanguages?: () => readonly string[];
   /** Optional preloaded emitted dictionaries, useful for SSR. */

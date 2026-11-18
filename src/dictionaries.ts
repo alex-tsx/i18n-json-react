@@ -1,16 +1,4 @@
-import type { DictionaryInput, InterpolationValues, LanguageDictionary, Messages } from './types.js';
-
-export function interpolateTypo(template: string, values: InterpolationValues): string {
-  return template.replace(/\{([\w.-]+)\}/g, (_, key: string) => {
-    const value = Object.hasOwn(values, key) ? values[key] : undefined;
-    return value == null ? '' : String(value);
-  });
-}
-
-export function translateMessage(messages: Messages, key: string, values?: InterpolationValues, placehold = true) {
-  const template = (Object.hasOwn(messages, key) ? messages[key] : undefined) ?? (placehold ? `i18n(${key})` : '');
-  return values ? interpolateTypo(template, values) : template;
-}
+import type { DictionaryInput, LanguageDictionary, Messages } from './types.js';
 
 export function getMessages(
   info: DictionaryInput,

@@ -1,11 +1,49 @@
-import { createI18n, type DictionaryReference } from 'i18n-json-react';
-import { createI18nStore } from 'i18n-json-react/core';
+import I18N, {
+  configure,
+  createI18n,
+  createTypo,
+  createTypoGetter,
+  createUseTypo,
+  interpolateTypo,
+  useTypoAsObject,
+  type DictionaryReference,
+  type InterpolationDelimiters,
+} from 'i18n-json-react';
+import { createI18nStore, interpolateTypo as interpolateCore } from 'i18n-json-react/core';
 import { I18nCollectPlugin, i18nLoaderRule } from 'i18n-json-react/webpack';
 import { i18nJsonPlugin, type I18nViteOptions } from 'i18n-json-react/vite';
 import type { Plugin } from 'vite';
 import messages from './messages.json' with { type: 'json' };
 
 const i18n = createI18n({ supportedLanguages: ['en', 'uk', 'pt-BR'], fallbackLanguage: 'en' });
+I18N.configure({
+  supportedLanguages: ['EN', 'UK'],
+  fallbackLanguage: 'UK',
+  interpolation: { prefix: '${', suffix: '}' },
+  loadDictionary: async language => {
+    const supported: 'EN' | 'UK' = language;
+    void supported;
+    return {};
+  },
+});
+configure({ supportedLanguages: ['en', 'uk'], fallbackLanguage: 'en' });
+// @ts-expect-error The default instance also validates the configured fallback type.
+I18N.configure({ supportedLanguages: ['EN', 'UK'], fallbackLanguage: 'FR' });
+// @ts-expect-error The initial language must be supported.
+configure({ supportedLanguages: ['EN', 'UK'], fallbackLanguage: 'UK', initialLanguage: 'FR' });
+const useDefault = createUseTypo(messages);
+useDefault()('hello', { name: 'Alex' });
+useDefault({ keyPrefix: 'buttons.' })('save');
+createTypoGetter(messages)('onlyUk');
+createTypo(messages, 'buttons.')({ id: 'save' });
+const defaultText: string | undefined = useTypoAsObject(messages).hello;
+void defaultText;
+// @ts-expect-error Default hooks retain translation key inference.
+useDefault()('missing');
+// @ts-expect-error Default components retain prefix inference.
+createTypo(messages, 'buttons.')({ id: 'hello' });
+// @ts-expect-error Default getters retain translation key inference.
+createTypoGetter(messages)('missing');
 i18n.setCurrentLang('pt-BR');
 // @ts-expect-error Unsupported locale must not widen the supported language union.
 i18n.setCurrentLang('fr');
@@ -50,6 +88,16 @@ i18n.createTypoGetter(ref)('hello');
 // @ts-expect-error Custom loader references preserve keys.
 i18n.createTypoGetter(ref)('bad');
 createI18nStore({ supportedLanguages: ['en'], fallbackLanguage: 'en' });
+const interpolation: InterpolationDelimiters = { prefix: '{{', suffix: '}}' };
+const custom = createI18n({ supportedLanguages: ['en'], fallbackLanguage: 'en', interpolation });
+custom.interpolateTypo('Hello, {{name}}', { name: 'Alex' });
+createI18nStore({ supportedLanguages: ['en'], fallbackLanguage: 'en', interpolation });
+interpolateTypo('Hello, {{name}}', { name: 'Alex' }, interpolation);
+interpolateCore('Hello, {{name}}', { name: 'Alex' }, interpolation);
+// @ts-expect-error Custom delimiters must include both sides.
+createI18n({ supportedLanguages: ['en'], fallbackLanguage: 'en', interpolation: { prefix: '{{' } });
+// @ts-expect-error Delimiters must be strings.
+interpolateTypo('Hello', {}, { prefix: 1, suffix: '}' });
 new I18nCollectPlugin({ dirs: ['.'], outputDir: 'assets/i18n' });
 i18nLoaderRule();
 const viteOptions: I18nViteOptions = { root: '.', dirs: ['.'], exclude: ['scripts/**'], outputDir: 'locales' };
