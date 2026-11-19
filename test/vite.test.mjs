@@ -33,7 +33,7 @@ test('Vite build extracts arbitrary locales and linked packages with IDs usable 
   await mkdir(path.join(root, 'ignored'));
   await mkdir(path.join(root, 'node_modules', '@example'), { recursive: true });
   await mkdir(linked);
-  await symlink(linked, path.join(root, 'node_modules', '@example', 'linked'));
+  await symlink(linked, path.join(root, 'node_modules', '@example', 'linked'), 'junction');
   await writeFile(
     path.join(root, 'feature', 'i18n.json'),
     JSON.stringify({ en: english, 'pt-BR': portuguese, 'zh-Hant': { title: '儲存' } }),

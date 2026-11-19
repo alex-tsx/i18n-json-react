@@ -315,7 +315,7 @@ for (const platform of ['android', 'ios']) {
         JSON.stringify({ presets: [[require.resolve('@react-native/babel-preset'), { enableBabelRuntime: false }]] }),
       );
       await mkdir(path.join(workspace, 'node_modules'));
-      await symlink(root, path.join(workspace, 'node_modules', 'i18n-json-react'));
+      await symlink(root, path.join(workspace, 'node_modules', 'i18n-json-react'), 'junction');
       await writeFile(
         path.join(native, 'registry.js'),
         'exports.registerAsset = asset => { global.__registeredAssets.push(asset); return global.__registeredAssets.length; };',

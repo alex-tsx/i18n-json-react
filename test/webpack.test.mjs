@@ -39,7 +39,7 @@ test('real Webpack compilation extracts arbitrary languages, strips text and loa
   await mkdir(path.join(context, 'ignored'), { recursive: true });
   await mkdir(path.join(context, 'node_modules', '@example'), { recursive: true });
   await mkdir(linkedPackage);
-  await symlink(linkedPackage, path.join(context, 'node_modules', '@example', 'linked'));
+  await symlink(linkedPackage, path.join(context, 'node_modules', '@example', 'linked'), 'junction');
   await writeFile(
     path.join(context, 'feature', 'i18n.json'),
     JSON.stringify({
