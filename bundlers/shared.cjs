@@ -4,12 +4,13 @@ const { glob, readFile, realpath, stat } = require('node:fs/promises');
 const path = require('node:path');
 
 function resolveRoot(context, root) {
-  return realpathSync(path.resolve(context, root ?? '.'));
+  return realpathSync.native(path.resolve(context, root ?? '.'));
 }
 
 function computeId(file, root) {
   // Bundlers normally resolve linked packages to real paths. Collection must use the same identity.
-  const relative = path.relative(realpathSync(root), realpathSync(file)).split(path.sep).join('/');
+  // Use the native resolver, as fs/promises.realpath does, to expand Windows short-path aliases consistently.
+  const relative = path.relative(realpathSync.native(root), realpathSync.native(file)).split(path.sep).join('/');
   return createHash('sha256').update(relative).digest('hex').slice(0, 16);
 }
 

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, realpath, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import os from 'node:os';
 import path from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -18,10 +17,12 @@ import { prepareNativeI18n, withI18nMetro } from 'i18n-json-react/native/metro';
 import { prepareAndroidI18n } from 'i18n-json-react/native/android/metro';
 import { prepareIOSI18n, withI18nMetro as iosMetro } from 'i18n-json-react/native/ios/metro';
 
-const temporary = await realpath(await mkdtemp(path.join(os.tmpdir(), 'i18n-json-react-native-')));
+const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+// Windows runners put os.tmpdir() on C: and the checkout on D:. Metro cannot
+// resolve package junctions across those drives, so keep fixtures with the checkout.
+const temporary = await realpath(await mkdtemp(path.join(root, 'node_modules', '.i18n-json-react-native-')));
 after(() => rm(temporary, { recursive: true, force: true }));
 const exec = promisify(execFile);
-const root = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const require = createRequire(import.meta.url);
 const { computeId } = require('../bundlers/shared.cjs');
 const texts = {

@@ -26,7 +26,7 @@ async function withI18nMetro(baseConfig, options = {}) {
           !FEATURE_FILE.test(result.filePath)
         )
           return result;
-        const file = realpathSync(result.filePath);
+        const file = realpathSync.native(result.filePath);
         const reference = prepared.references.get(file);
         if (!reference)
           throw new Error(

@@ -1,6 +1,6 @@
 {
   "name": "i18n-json-react",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Typed, feature-local JSON translations for React and React Native, with Vite, Webpack and Android/iOS Metro extraction.",
   "type": "module",
   "main": "./dist/cjs/index.js",
