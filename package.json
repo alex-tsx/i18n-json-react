@@ -1,6 +1,6 @@
 {
   "name": "i18n-json-react",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "Typed, feature-local JSON translations for React and React Native, with Vite, Webpack and Android/iOS Metro extraction.",
   "type": "module",
   "main": "./dist/cjs/index.js",
@@ -71,7 +71,16 @@
     "./native/ios/metro": {
       "types": "./native/ios/metro.d.cts",
       "default": "./native/ios/metro.cjs"
-    }
+    },
+    "./native/android/resources": {
+      "types": "./native/android/resources.d.cts",
+      "default": "./native/android/resources.cjs"
+    },
+    "./native/android/plugin": {
+      "types": "./native/android/plugin.d.cts",
+      "default": "./native/android/plugin.cjs"
+    },
+    "./native/android/resources.schema.json": "./native/android/resources.schema.json"
   },
   "files": [
     "dist",
@@ -87,7 +96,8 @@
   "bin": {
     "i18n-json-react-android": "./native/android/cli.cjs",
     "i18n-json-react-native": "./native/cli.cjs",
-    "i18n-json-react-ios": "./native/ios/cli.cjs"
+    "i18n-json-react-ios": "./native/ios/cli.cjs",
+    "i18n-json-react-android-resources": "./native/android/resources-cli.cjs"
   },
   "scripts": {
     "build": "node scripts/build.mjs",
@@ -102,7 +112,8 @@
     "expo-file-system": ">=19.0.0",
     "metro-config": "^0.83.0",
     "vite": "^7.0.0 || ^8.0.0",
-    "webpack": "^5.0.0"
+    "webpack": "^5.0.0",
+    "@expo/config-plugins": ">=54.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -122,6 +133,9 @@
     },
     "webpack": {
       "optional": true
+    },
+    "@expo/config-plugins": {
+      "optional": true
     }
   },
   "devDependencies": {
@@ -135,7 +149,8 @@
     "metro": "^0.83.8",
     "metro-config": "^0.83.8",
     "vite": "^8.3.5",
-    "webpack": "^5.0.0"
+    "webpack": "^5.0.0",
+    "@expo/config-plugins": "~54.0.6"
   },
   "engines": {
     "node": ">=22.13.0"

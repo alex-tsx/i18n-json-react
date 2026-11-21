@@ -177,3 +177,106 @@ Your reader must resolve a Metro asset module ID to UTF-8 text on the native pla
 Tests generate shared-workspace assets and build actual minified Android and iOS Metro bundles. They check that language text is absent from JavaScript, assets remain discoverable for packaging, provider calls are lazy, and only selected/fallback files are read. The loader, Expo adapter contract, caching/retry behavior, CLI, safe regeneration, and TypeScript exports are covered.
 
 To also execute the generated production bundle in an available Hermes CLI, set `I18N_JSON_REACT_HERMES=/absolute/path/to/hermes` when running tests. This was checked against the Hermes binary installed with React Native 0.81.5. An installed Android/iOS app test is still required when integrating into an application; these package tests do not claim to run native modules on a device.
+
+## Android widgets, notifications, and native views
+
+Kotlin/Java code that runs without JavaScript uses `R.string` resources. The Metro
+language packs above serve React translations; Android XML resource export is an
+optional, separate build-time integration. It has no runtime dependencies and works
+with both inline dictionaries and Metro extraction, using the global or isolated API.
+
+Create one declarative config, for example `native/i18n.resources.json`:
+
+```json
+{
+  "root": "..",
+  "defaultLanguage": "EN",
+  "languages": ["EN", "UK"],
+  "resources": [
+    {
+      "outputDir": "native/android/app/src/main/res",
+      "dictionaries": ["src/profile/i18n.json", "src/common.i18n.json"],
+      "strings": {
+        "profile_title": "title",
+        "profile_greeting": "nativeGreeting"
+      }
+    }
+  ]
+}
+```
+
+Dictionary files remain feature-local. Each target searches its `dictionaries` in
+order for a message in the requested locale, then uses `defaultLanguage` if that
+message is missing. Empty strings stay empty. A missing default translation fails
+the build. Resource IDs map to flat message keys; no combined application catalog
+is required. Configure additional targets for native modules with their own `res/`
+directories. Each target may set a dedicated `fileName` (default
+`i18n_json_react.xml`). Do not assign the same target/file to multiple configs.
+
+All paths are relative to `root`; `root` itself is relative to the JSON config file.
+Without `root`, use paths relative to that file. No environment files or executable
+configuration modules are loaded. An optional `$schema` can point your editor to
+`i18n-json-react/native/android/resources.schema.json` in `node_modules`.
+
+For Expo, add this config plugin to the app's plugins list:
+
+```json
+[
+  "i18n-json-react/native/android/plugin",
+  { "config": "./i18n.resources.json" }
+]
+```
+
+The plugin uses the Expo app's installed `@expo/config-plugins` peer and exports the
+resources automatically during Android prebuild, before Gradle compiles them.
+`config` is relative to the Expo app directory. Restarting Metro or exporting only a
+JavaScript bundle does not rebuild native resources; run prebuild and rebuild
+Android after editing these translations. iOS builds do not invoke this plugin.
+
+Bare Android and CI can use the CLI, with no custom generator script:
+
+```sh
+npx i18n-json-react-android-resources --config native/i18n.resources.json
+```
+
+Or call the dependency-free Node API:
+
+```ts
+import { generateAndroidResourcesFromConfig } from 'i18n-json-react/native/android/resources';
+await generateAndroidResourcesFromConfig('native/i18n.resources.json');
+```
+
+`generateAndroidResources(options)` also accepts the configuration as an object,
+plus an optional `projectRoot` base (default: the working directory).
+
+The default language is emitted into `values/`. Uppercase identifiers such as `UK`
+automatically become `values-uk`; regional/script tags use Android BCP-47 resource
+qualifiers, such as `values-b+pt+BR` or `values-b+sr+Latn+RS`. Set `locales` to map
+custom dictionary identifiers, for example `{ "PORT": "pt-BR" }`.
+Two identifiers that map to the same Android locale are rejected. The exporter
+preserves whitespace and escapes XML and Android string syntax, including quotes,
+backslashes, literal resource-reference prefixes, and line breaks. See the official
+[Android string resource documentation](https://developer.android.com/guide/topics/resources/string-resource).
+
+Native formatting uses positional Android/Java printf arguments in the dictionary,
+for example `"nativeGreeting": "Hello, %1$s"`. Translations can reorder arguments;
+argument positions and types are checked against the default translation before
+writing files. Strings containing positional arguments are formatted automatically;
+other strings are literal (`formatted="false"`), including ordinary percentages.
+Override this with `{ "key": "nativeGreeting", "formatted": false }` or explicitly
+require formatting with `true`. Formatted strings must use indexed arguments;
+`{name}` interpolation is left as text. This exporter does not convert ICU messages,
+HTML, plurals, or string arrays.
+
+Output files carry an ownership marker. Regeneration skips unchanged files and
+removes only recognized generated files for locales that were removed. Existing
+manual resources, unrelated files and directories remain intact; generation refuses
+to overwrite an unmarked destination or a symlink. Use a distinct filename when
+other tooling also generates resources in the same directory.
+
+Android selects these resources using the native `Context` locale. Changing the
+JavaScript I18N language alone does not change Android's locale or refresh widgets;
+the application owns native locale synchronization and background component updates.
+
+To verify exported XML with a local Android SDK, set
+`I18N_JSON_REACT_AAPT2=/absolute/path/to/aapt2` when running the library tests.

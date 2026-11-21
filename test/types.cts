@@ -31,3 +31,7 @@ sharedNative.createNativeDictionaryLoader({ UK: () => 1 }, { readAssetText: asyn
 ios.createIOSDictionaryLoader({ UK: () => 1 }, { readAssetText: async () => '{}' })('UK');
 iosExpo.createExpoDictionaryLoader({ UK: () => 1 })('UK');
 sharedExpo.createExpoDictionaryLoader({ UK: () => 1 })('UK');
+import androidResources = require('i18n-json-react/native/android/resources');
+import withAndroidResources = require('i18n-json-react/native/android/plugin');
+androidResources.generateAndroidResources({defaultLanguage: 'EN', resources: [{outputDir: 'res', dictionaries: ['i18n.json'], strings: {hello: 'hello'}}]});
+withAndroidResources({name: 'Example', slug: 'example'}, {config: './i18n.resources.json'});

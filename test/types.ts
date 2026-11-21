@@ -162,3 +162,20 @@ function checkMetro(config: ConfigT) {
   return withI18nMetro(config, { root: '..', dirs: ['src', 'native'] });
 }
 void checkMetro;
+
+// Build-time Android resource exports are separate from React Native asset loading.
+import { generateAndroidResources, generateAndroidResourcesFromConfig, type AndroidResourcesConfig } from 'i18n-json-react/native/android/resources';
+import withAndroidResources from 'i18n-json-react/native/android/plugin';
+const androidResources: AndroidResourcesConfig<'EN' | 'UK'> = {
+  defaultLanguage: 'EN', languages: ['EN', 'UK'], locales: {UK: 'uk-UA'},
+  resources: [{outputDir: 'android/app/src/main/res', dictionaries: ['src/profile/i18n.json'], strings: {title: 'hello', percent: {key: 'percent', formatted: false}}}],
+};
+void generateAndroidResources(androidResources);
+void generateAndroidResourcesFromConfig('i18n.resources.json');
+withAndroidResources({name: 'Example', slug: 'example'}, {config: './i18n.resources.json'});
+// @ts-expect-error Resource mappings need string keys or key/options objects.
+generateAndroidResources({defaultLanguage: 'EN', resources: [{outputDir: 'res', dictionaries: ['i18n.json'], strings: {title: 7}}]});
+// @ts-expect-error Native format metadata is boolean.
+generateAndroidResources({defaultLanguage: 'EN', resources: [{outputDir: 'res', dictionaries: ['i18n.json'], strings: {title: {key: 'title', formatted: 'yes'}}}]});
+// @ts-expect-error Explicit locale unions reject unknown language mappings.
+const invalidAndroidLocales: AndroidResourcesConfig<'EN' | 'UK'> = {...androidResources, locales: {FR: 'fr'}};

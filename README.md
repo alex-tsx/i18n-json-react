@@ -226,6 +226,11 @@ Use `i18n-json-react/native/metro` at build time and `i18n-json-react/native/exp
 
 Translation preparation runs at Metro startup: restart Metro after translation JSON changes. Web/Vite reload behavior is unchanged. The guide includes a preparation CLI for native type-checking and CI.
 
+For Kotlin/Java widgets, notification receivers, and native views that run without
+JavaScript, the optional [Android resource exporter](native/README.md#android-widgets-notifications-and-native-views)
+generates `R.string` XML from the same feature dictionaries. Expo prebuild integration
+and a declarative CLI remove the need for an application-owned generator.
+
 ## Extract language files with Vite 7 or 8
 
 ```ts

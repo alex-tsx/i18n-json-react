@@ -12,3 +12,9 @@ Existing Android imports and commands remain supported:
 For new shared setup code, use `/native/metro`, `/native/expo`, and `i18n-json-react-native`. The platform-specific entry points delegate to that implementation.
 
 Language text remains outside JavaScript in separate offline data assets. Only fallback and selected locale assets are read initially; a build language filter can reduce APK size. Restart Metro after translation JSON changes. See the shared guide for the complete setup, native storage and locale options, Health Ledger source layout, and release verification limits.
+
+For Android XML strings used by widgets, notifications, and native views, see
+[Android resource export](../README.md#android-widgets-notifications-and-native-views).
+Use `i18n-json-react/native/android/resources` for the build-time Node API,
+`i18n-json-react-android-resources --config FILE.json` for bare Android/CI, or the
+`i18n-json-react/native/android/plugin` Expo config plugin for automatic prebuild generation.
